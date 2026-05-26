@@ -1,8 +1,4 @@
-"""Tiny Flask app — applied-ai-sandbox.
 
-Each task in tasks/ asks you to add or fix one piece. The tests in tests/
-describe exactly what "done" means.
-"""
 from __future__ import annotations
 
 from flask import Flask, render_template, request, redirect, url_for
@@ -29,7 +25,7 @@ def create_app() -> Flask:
                 return render_template("new_note.html", error="Title is required", title=title, body=body)
             if not body:
                 return render_template("new_note.html", error="Body is required", title=title, body=body)
-            app.notes.append({"title": title, "body": body})
+            app.notes.append({"title": title, "body": body, "tags": []})
             return redirect(url_for("home"))
         return render_template("new_note.html")
 
