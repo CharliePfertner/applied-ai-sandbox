@@ -1,6 +1,8 @@
 
 from __future__ import annotations
 
+from datetime import datetime, timezone
+
 from flask import Flask, render_template, request, redirect, url_for
 
 
@@ -25,6 +27,10 @@ def create_app() -> Flask:
 
     @app.route("/")
     def home():
+        # Older in-memory notes (or tests) might not have created_at yet.
+        for note in app.notes:
+            if "created_at" not in note:
+                note["created_at"] = None
         return render_template("home.html", notes=app.notes)
 
     @app.route("/notes/new", methods=["GET", "POST"])
@@ -37,7 +43,8 @@ def create_app() -> Flask:
             if not body:
                 return render_template("new_note.html", error="Body is required", title=title, body=body)
             tags = parse_tags(request.form.get("tags") or "")
-            app.notes.append({"title": title, "body": body, "tags": tags})
+            created_at = datetime.now(timezone.utc).isoformat(timespec="seconds")
+            app.notes.append({"title": title, "body": body, "tags": tags, "created_at": created_at})
             return redirect(url_for("home"))
         return render_template("new_note.html")
 

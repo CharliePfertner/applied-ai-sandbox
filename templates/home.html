@@ -9,6 +9,7 @@
     .meta { color: #666; margin-bottom: 1.5rem; }
     .note { border: 1px solid #ddd; border-radius: 8px; padding: 1rem; margin-bottom: 0.75rem; }
     .note h3 { margin: 0 0 0.5rem; }
+    .note .created-at { color: #666; font-size: 0.9rem; margin: -0.25rem 0 0.75rem; }
     a.btn { display: inline-block; background: #1a2540; color: #fff; padding: 0.5rem 1rem; border-radius: 6px; text-decoration: none; }
   </style>
 </head>
@@ -23,6 +24,9 @@
     {% for note in notes %}
       <div class="note">
         <h3>{{ note.title }}</h3>
+        {% if note.get('created_at') %}
+          <div class="created-at">Created: {{ note.get('created_at') }}</div>
+        {% endif %}
         <p>{{ note.body }}</p>
       </div>
     {% endfor %}
