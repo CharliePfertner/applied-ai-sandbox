@@ -36,7 +36,8 @@ def create_app() -> Flask:
                 return render_template("new_note.html", error="Title is required", title=title, body=body)
             if not body:
                 return render_template("new_note.html", error="Body is required", title=title, body=body)
-            app.notes.append({"title": title, "body": body, "tags": []})
+            tags = parse_tags(request.form.get("tags") or "")
+            app.notes.append({"title": title, "body": body, "tags": tags})
             return redirect(url_for("home"))
         return render_template("new_note.html")
 
