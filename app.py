@@ -4,6 +4,17 @@ from __future__ import annotations
 from flask import Flask, render_template, request, redirect, url_for
 
 
+def parse_tags(raw: str) -> list[str]:
+    seen: set[str] = set()
+    result: list[str] = []
+    for tag in raw.split(","):
+        tag = tag.strip().lower()
+        if tag and tag not in seen:
+            seen.add(tag)
+            result.append(tag)
+    return result
+
+
 def create_app() -> Flask:
     app = Flask(__name__)
     app.config["SECRET_KEY"] = "sandbox-not-a-real-secret"
