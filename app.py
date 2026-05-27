@@ -1,9 +1,10 @@
 
 from __future__ import annotations
 
+import unicodedata
 from datetime import datetime, timezone
 
-from flask import Flask, render_template, request, redirect, url_for
+from flask import Flask, jsonify, render_template, request, redirect, url_for
 
 
 def parse_tags(raw: str) -> list[str]:
@@ -15,6 +16,35 @@ def parse_tags(raw: str) -> list[str]:
             seen.add(tag)
             result.append(tag)
     return result
+
+
+def _normalize(s: str) -> str:
+    return unicodedata.normalize("NFC", s).lower()
+
+
+def _make_snippet(body: str, query: str, max_len: int = 160) -> str:
+    idx = _normalize(body).find(_normalize(query))
+    if idx == -1:
+        return body[:max_len]
+    half = max_len // 2
+    start = max(0, idx - half)
+    end = min(len(body), start + max_len)
+    return ("…" if start else "") + body[start:end] + ("…" if end < len(body) else "")
+
+
+def _search_notes(notes: list[dict], query: str) -> list[dict]:
+    q = _normalize(query)
+    results = []
+    for note in notes:
+        in_title = q in _normalize(note["title"])
+        in_body = q in _normalize(note.get("body") or "")
+        if not (in_title or in_body):
+            continue
+        matched_in = "both" if (in_title and in_body) else ("title" if in_title else "body")
+        snippet = _make_snippet(note.get("body") or "", query) if in_body else None
+        results.append({**note, "matched_in": matched_in, "snippet": snippet})
+    results.sort(key=lambda r: 0 if r["matched_in"] in ("title", "both") else 1)
+    return results
 
 
 def create_app() -> Flask:
@@ -47,6 +77,32 @@ def create_app() -> Flask:
             app.notes.append({"title": title, "body": body, "tags": tags, "created_at": created_at})
             return redirect(url_for("home"))
         return render_template("new_note.html")
+
+    @app.route("/notes")
+    def list_notes():
+        q = (request.args.get("q") or "").strip()
+        if len(q) > 200:
+            return jsonify({"error": "Query too long (max 200 characters)"}), 400
+
+        try:
+            page = max(1, int(request.args.get("page", 1)))
+            limit = min(100, max(1, int(request.args.get("limit", 20))))
+        except ValueError:
+            return jsonify({"error": "page and limit must be integers"}), 400
+
+        for note in app.notes:
+            note.setdefault("created_at", None)
+
+        if q:
+            matched = _search_notes(app.notes, q)
+        else:
+            matched = [{**note, "matched_in": None, "snippet": None} for note in app.notes]
+
+        total = len(matched)
+        start = (page - 1) * limit
+        page_notes = matched[start: start + limit]
+
+        return jsonify({"notes": page_notes, "total_count": total, "query": q})
 
     # TASK 02 will add a /notes/<idx>/delete route here.
 
