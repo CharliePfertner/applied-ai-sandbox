@@ -33,11 +33,11 @@ def _make_snippet(body: str, query: str, max_len: int = 160) -> str:
 
 
 def _search_notes(notes: list[dict], query: str) -> list[dict]:
-    q = _normalize(query)
+    search_string = _normalize(query)
     results = []
     for note in notes:
-        in_title = q in _normalize(note["title"])
-        in_body = q in _normalize(note.get("body") or "")
+        in_title = search_string in _normalize(note["title"])
+        in_body = search_string in _normalize(note.get("body") or "")
         if not (in_title or in_body):
             continue
         matched_in = "both" if (in_title and in_body) else ("title" if in_title else "body")
@@ -80,8 +80,8 @@ def create_app() -> Flask:
 
     @app.route("/notes")
     def list_notes():
-        q = (request.args.get("q") or "").strip()
-        if len(q) > 200:
+        query = (request.args.get("q") or "").strip()
+        if len(query) > 200:
             return jsonify({"error": "Query too long (max 200 characters)"}), 400
 
         try:
@@ -93,8 +93,8 @@ def create_app() -> Flask:
         for note in app.notes:
             note.setdefault("created_at", None)
 
-        if q:
-            matched = _search_notes(app.notes, q)
+        if query:
+            matched = _search_notes(app.notes, query)
         else:
             matched = [{**note, "matched_in": None, "snippet": None} for note in app.notes]
 
@@ -102,7 +102,7 @@ def create_app() -> Flask:
         start = (page - 1) * limit
         page_notes = matched[start: start + limit]
 
-        return jsonify({"notes": page_notes, "total_count": total, "query": q})
+        return jsonify({"notes": page_notes, "total_count": total, "query": query})
 
     # TASK 02 will add a /notes/<idx>/delete route here.
 

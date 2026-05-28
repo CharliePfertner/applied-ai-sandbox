@@ -123,6 +123,30 @@ def test_case_insensitive_search(client, app):
     assert data["total_count"] == 1
 
 
+def test_limit_zero_clamped_to_one(client, app):
+    _seed(app, [{"title": f"Note {i}", "body": "content"} for i in range(5)])
+    r, data = _get(client, q="content", limit=0)
+    assert r.status_code == 200
+    assert len(data["notes"]) == 1
+    assert data["total_count"] == 5
+
+
+def test_limit_above_cap_clamped_to_100(client, app):
+    _seed(app, [{"title": f"Note {i}", "body": "content"} for i in range(150)])
+    r, data = _get(client, q="content", limit=200)
+    assert r.status_code == 200
+    assert len(data["notes"]) == 100
+    assert data["total_count"] == 150
+
+
+def test_page_out_of_range_returns_empty_notes_not_zero_total(client, app):
+    _seed(app, [{"title": f"Note {i}", "body": "content"} for i in range(3)])
+    r, data = _get(client, q="content", page=999)
+    assert r.status_code == 200
+    assert data["total_count"] == 3  # results exist — caller must not treat notes=[] as "no match"
+    assert data["notes"] == []
+
+
 def test_no_q_notes_have_null_matched_in_and_snippet(client, app):
     _seed(app, [{"title": "T", "body": "B"}])
     r, data = _get(client)
@@ -130,3 +154,27 @@ def test_no_q_notes_have_null_matched_in_and_snippet(client, app):
     note = data["notes"][0]
     assert note["matched_in"] is None
     assert note["snippet"] is None
+
+
+def test_html_special_chars_in_title_returned_safely(client, app):
+    xss_title = "<script>alert(1)</script>"
+    xss_body = '<img src=x onerror="alert(2)">'
+    _seed(app, [{"title": xss_title, "body": xss_body}])
+
+    # /notes API: strings round-trip correctly through JSON serialisation
+    r, data = _get(client)
+    assert r.status_code == 200
+    assert data["total_count"] == 1
+    note = data["notes"][0]
+    assert note["title"] == xss_title
+    assert note["body"] == xss_body
+    # The response is application/json, so browsers never interpret its body
+    # as HTML — that is the API's XSS protection, not character escaping.
+    assert "application/json" in r.content_type
+
+    # Home page: Jinja2 auto-escaping must convert < / > so the raw HTML
+    # response bytes cannot trigger script execution.
+    home = client.get("/")
+    assert home.status_code == 200
+    assert b"<script>alert(1)</script>" not in home.data
+    assert b"&lt;script&gt;" in home.data
