@@ -1,0 +1,3 @@
+[tool.pytest.ini_options]
+# Make `pytest` (without `python -m`) able to import app.py from the repo root.
+pythonpath = ["."]
